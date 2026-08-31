@@ -1,0 +1,8 @@
+{
+  "name": "Yogi",
+  "description": "Editorial model portfolio for Yogi featuring runway, campaign, and high-fashion representation across Paris, Milan, and New York.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "entities": {
+    "model_profiles": {
+      "title": "Model Profile",
+      "description": "Live model profile information and comp-card specs",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "agency": { "type": "string" },
+        "locations": { "type": "string" },
+        "categories": { "type": "array", "items": { "type": "string" } },
+        "bio": { "type": "string" },
+        "heroImage": { "type": "string" },
+        "height": { "type": "string" },
+        "bust": { "type": "string" },
+        "waist": { "type": "string" },
+        "hips": { "type": "string" },
+        "shoes": { "type": "string" },
+        "eyes": { "type": "string" },
+        "hair": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "agency"]
+    },
+    "agency_sections": {
+      "title": "Agency Section",
+      "description": "About Modelia agency copy, signature, and buttons",
+      "type": "object",
+      "properties": {
+        "greeting": { "type": "string" },
+        "leadText": { "type": "string" },
+        "paragraphText": { "type": "string" },
+        "signatureRole": { "type": "string" },
+        "btnBecomeModelText": { "type": "string" },
+        "btnScheduleCastingText": { "type": "string" },
+        "agencyImage": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["greeting", "leadText"]
+    },
+    "portfolio_collections": {
+      "title": "Portfolio Collections",
+      "description": "High-fashion photographic portfolio items",
+      "type": "object",
+      "properties": {
+        "items": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["items"]
+    }
+  }
+}
