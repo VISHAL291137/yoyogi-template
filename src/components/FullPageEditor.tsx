@@ -58,22 +58,23 @@ export default function FullPageEditor({
   const portfolioImageInputRef = useRef<HTMLInputElement>(null);
   const [editingPortfolioId, setEditingPortfolioId] = useState<string | null>(null);
 
-  const handleSaveAndExit = (e?: FormEvent) => {
+  const handleSaveAndExit = async (e?: FormEvent) => {
     if (e) e.preventDefault();
     if (isSaving) return;
     setIsSaving(true);
     
-    // Save to parent state & persistent stores immediately
     try {
-      onSaveModelInfo(modelForm);
-      onSaveAgencyInfo(agencyForm);
-      onSavePortfolioItems(portfolioList);
+      await Promise.all([
+        Promise.resolve(onSaveModelInfo(modelForm)),
+        Promise.resolve(onSaveAgencyInfo(agencyForm)),
+        Promise.resolve(onSavePortfolioItems(portfolioList)),
+      ]);
     } catch (err) {
-      console.warn('Sync notice:', err);
+      console.warn('Save notice:', err);
+    } finally {
+      setIsSaving(false);
+      onClose();
     }
-
-    // Immediately exit editor mode so user sees updated live website instantly
-    onClose();
   };
 
   const handleHeroImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -233,11 +234,12 @@ export default function FullPageEditor({
           {/* Quick Save Header Button */}
           <button
             type="button"
+            disabled={isSaving}
             onClick={handleSaveAndExit}
             className="inline-flex items-center gap-2 bg-[#1A1A1A] hover:bg-[#333] active:scale-95 text-[#FAF7F2] px-6 py-2 rounded-full text-xs font-bold tracking-[0.2em] uppercase transition-all shadow-md cursor-pointer disabled:opacity-75"
           >
             <Check className="w-4 h-4 text-[#CD7F63]" />
-            <span>Save & Exit</span>
+            <span>{isSaving ? 'Saving...' : 'Save & Exit'}</span>
           </button>
         </div>
       </header>
@@ -988,11 +990,12 @@ export default function FullPageEditor({
             </button>
             <button
               type="button"
+              disabled={isSaving}
               onClick={handleSaveAndExit}
               className="bg-[#1A1A1A] hover:bg-[#333] active:scale-95 text-[#FAF7F2] px-8 py-2.5 rounded-full text-xs font-bold tracking-[0.2em] uppercase transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-75"
             >
               <Check className="w-4 h-4 text-[#CD7F63]" />
-              <span>Save & View Website</span>
+              <span>{isSaving ? 'Saving...' : 'Save & View Website'}</span>
             </button>
           </div>
         </div>

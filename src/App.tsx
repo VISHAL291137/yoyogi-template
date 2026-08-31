@@ -9,53 +9,38 @@ import TagModal from './components/TagModal';
 import BookingModal from './components/BookingModal';
 import ModelFooter from './components/ModelFooter';
 import { ModelInfo, ModelAgencyInfo, PortfolioItem } from './types';
+import { INITIAL_MODEL_INFO, INITIAL_AGENCY_INFO, PORTFOLIO_ITEMS } from './data/modelData';
 import {
-  initDefaultDataIfEmpty,
+  fetchCloudData,
   subscribeToModelProfile,
   subscribeToAgencySection,
   subscribeToPortfolio,
   saveLiveModelProfile,
   saveLiveAgencySection,
   saveLivePortfolio,
-  getLocalCachedData,
-  getPersistentCachedData,
   isQuotaExhaustedError
 } from './lib/databaseService';
 import { Info, X } from 'lucide-react';
 
 export default function App() {
-  const cached = getLocalCachedData();
-  const [modelInfo, setModelInfo] = useState<ModelInfo>(cached.profile);
-  const [agencyInfo, setAgencyInfo] = useState<ModelAgencyInfo>(cached.agency);
-  const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>(cached.portfolio);
+  const [modelInfo, setModelInfo] = useState<ModelInfo>(INITIAL_MODEL_INFO);
+  const [agencyInfo, setAgencyInfo] = useState<ModelAgencyInfo>(INITIAL_AGENCY_INFO);
+  const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>(PORTFOLIO_ITEMS);
   const [isEditing, setIsEditing] = useState(false);
   const [tagModalOpen, setTagModalOpen] = useState(false);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('profile');
   const [dbNotice, setDbNotice] = useState<string | null>(null);
 
-  // Initialize and subscribe to Live Database with graceful error handling
+  // Initialize and subscribe to Live Cloud Firestore Database exclusively
   useEffect(() => {
     let unsubProfile: (() => void) | undefined;
     let unsubAgency: (() => void) | undefined;
     let unsubPortfolio: (() => void) | undefined;
 
     const connectDb = async () => {
-      // 1. Immediately hydrate from persistent IndexedDB store if available
       try {
-        const persistent = await getPersistentCachedData();
-        if (persistent) {
-          if (persistent.profile) setModelInfo(persistent.profile);
-          if (persistent.agency) setAgencyInfo(persistent.agency);
-          if (persistent.portfolio) setPortfolioItems(persistent.portfolio);
-        }
-      } catch (err) {
-        console.warn('Persistent cache hydration:', err);
-      }
-
-      // 2. Fetch live data from Cloud Firestore database
-      try {
-        await initDefaultDataIfEmpty((loaded) => {
+        await fetchCloudData((loaded) => {
           if (loaded.profile) setModelInfo(loaded.profile);
           if (loaded.agency) setAgencyInfo(loaded.agency);
           if (loaded.portfolio) setPortfolioItems(loaded.portfolio);
