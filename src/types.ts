@@ -32,4 +32,17 @@ export interface PortfolioItem {
   season: string;
   aspect: 'portrait' | 'landscape' | 'square';
   image: string;
+  albumId?: string;
+  order?: number;
+}
+
+export interface Album {
+  id: string;
+  title: string;
+  description?: string;
+  coverImage?: string;
+  category?: 'Editorial' | 'Runway' | 'Campaign' | 'Portrait' | 'All';
+  season?: string;
+  order?: number;
+  updatedAt?: string;
 }

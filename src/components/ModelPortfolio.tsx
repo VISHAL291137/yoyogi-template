@@ -1,18 +1,25 @@
 import { useState } from 'react';
-import { Maximize2, X } from 'lucide-react';
-import { PortfolioItem } from '../types';
+import { Maximize2, X, FolderHeart, Sparkles } from 'lucide-react';
+import { PortfolioItem, Album } from '../types';
 
 interface ModelPortfolioProps {
   items: PortfolioItem[];
+  albums?: Album[];
 }
 
-export default function ModelPortfolio({ items }: ModelPortfolioProps) {
+export default function ModelPortfolio({ items, albums = [] }: ModelPortfolioProps) {
+  const [selectedAlbumId, setSelectedAlbumId] = useState<string>('all');
   const [activeFilter, setActiveFilter] = useState<'All' | 'Editorial' | 'Runway' | 'Campaign' | 'Portrait'>('All');
   const [selectedItem, setSelectedItem] = useState<PortfolioItem | null>(null);
 
-  const filteredItems = activeFilter === 'All'
-    ? items
-    : items.filter((item) => item.category === activeFilter);
+  // Filter items by selected album (if any selected) AND category
+  const filteredItems = items.filter((item) => {
+    const matchesAlbum = selectedAlbumId === 'all' || item.albumId === selectedAlbumId;
+    const matchesCategory = activeFilter === 'All' || item.category === activeFilter;
+    return matchesAlbum && matchesCategory;
+  });
+
+  const currentAlbum = albums.find((a) => a.id === selectedAlbumId);
 
   return (
     <section
@@ -21,21 +28,27 @@ export default function ModelPortfolio({ items }: ModelPortfolioProps) {
     >
       <div id="portfolio" className="max-w-7xl mx-auto px-6 sm:px-12 md:px-16 lg:px-20">
         {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-14 sm:mb-16 border-b border-[#ECE5D8] pb-8">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-10 sm:mb-12 border-b border-[#ECE5D8] pb-8">
           <div>
             <div
               id="portfolio-label"
-              className="text-[11px] font-semibold tracking-[0.3em] uppercase text-[#CD7F63] mb-3 font-sans"
+              className="text-[11px] font-semibold tracking-[0.3em] uppercase text-[#CD7F63] mb-3 font-sans flex items-center gap-2"
             >
-              SELECTED WORKS
+              <FolderHeart className="w-3.5 h-3.5" />
+              <span>EDITORIAL ALBUMS & LOOKBOOKS</span>
             </div>
             <h2
               id="portfolio-heading"
               className="font-editorial-serif text-4xl sm:text-5xl lg:text-6xl font-normal leading-[1.1] tracking-tight text-[#1A1A1A]"
               style={{ fontFamily: "'Cormorant Garamond', 'Georgia', serif" }}
             >
-              Editorial Portfolio
+              {currentAlbum ? currentAlbum.title : 'Editorial Portfolio & Albums'}
             </h2>
+            {currentAlbum?.description && (
+              <p className="mt-3 text-sm sm:text-base text-[#786F62] max-w-2xl font-light">
+                {currentAlbum.description}
+              </p>
+            )}
           </div>
 
           {/* Category Filter Pills */}
@@ -57,6 +70,66 @@ export default function ModelPortfolio({ items }: ModelPortfolioProps) {
           </div>
         </div>
 
+        {/* Distinct Albums Selector Tabs / Chips */}
+        {albums.length > 0 && (
+          <div className="mb-12 pb-6 border-b border-[#EAE3D6]/70">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[10px] uppercase tracking-widest text-[#786F62] font-mono">
+                Select Album Collection:
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedAlbumId('all')}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wider transition-all duration-200 flex items-center gap-2 ${
+                  selectedAlbumId === 'all'
+                    ? 'bg-[#1A1A1A] text-white shadow-md'
+                    : 'bg-white border border-[#EAE3D6] text-[#595246] hover:border-[#1A1A1A]'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#CD7F63]" />
+                <span>All Collections ({items.length})</span>
+              </button>
+
+              {albums.map((album) => {
+                const count = items.filter((i) => i.albumId === album.id).length;
+                const isSelected = selectedAlbumId === album.id;
+                return (
+                  <button
+                    key={album.id}
+                    type="button"
+                    onClick={() => setSelectedAlbumId(album.id)}
+                    className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wider transition-all duration-200 flex items-center gap-2 ${
+                      isSelected
+                        ? 'bg-[#1A1A1A] text-white shadow-md'
+                        : 'bg-white border border-[#EAE3D6] text-[#595246] hover:border-[#1A1A1A]'
+                    }`}
+                  >
+                    <span>{album.title}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
+                        isSelected ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-600'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Empty state if album has no items */}
+        {filteredItems.length === 0 && (
+          <div className="text-center py-16 px-4 bg-white/50 border border-dashed border-[#E0D8CA] rounded-2xl">
+            <p className="text-sm font-medium text-[#786F62]">
+              No photographs found in this collection filter.
+            </p>
+          </div>
+        )}
+
         {/* Portfolio Dynamic Editorial Grid with Mix of Portrait and Landscape */}
         <div
           id="portfolio-grid"
@@ -64,6 +137,8 @@ export default function ModelPortfolio({ items }: ModelPortfolioProps) {
         >
           {filteredItems.map((item) => {
             const isLandscape = item.aspect === 'landscape';
+            const matchedAlbum = albums.find((a) => a.id === item.albumId);
+
             return (
               <div
                 key={item.id}
@@ -73,9 +148,11 @@ export default function ModelPortfolio({ items }: ModelPortfolioProps) {
                 }`}
               >
                 {/* Image Container with Editorial Frame */}
-                <div className={`relative overflow-hidden rounded-xl bg-[#EAE3D6] border border-[#EAE3D6] shadow-sm group-hover:shadow-md transition-all duration-300 ${
-                  isLandscape ? 'aspect-[16/10]' : 'aspect-[3/4]'
-                }`}>
+                <div
+                  className={`relative overflow-hidden rounded-xl bg-[#EAE3D6] border border-[#EAE3D6] shadow-sm group-hover:shadow-md transition-all duration-300 ${
+                    isLandscape ? 'aspect-[16/10]' : 'aspect-[3/4]'
+                  }`}
+                >
                   <img
                     src={item.image}
                     alt={item.title}
@@ -89,9 +166,16 @@ export default function ModelPortfolio({ items }: ModelPortfolioProps) {
                     </div>
                   </div>
 
-                  {/* Corner Badge */}
-                  <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full text-[9px] tracking-[0.2em] uppercase text-white font-mono">
-                    {item.category}
+                  {/* Corner Badges */}
+                  <div className="absolute top-4 left-4 flex flex-col gap-1 items-start">
+                    <span className="bg-black/50 backdrop-blur-md px-3 py-1 rounded-full text-[9px] tracking-[0.2em] uppercase text-white font-mono">
+                      {item.category}
+                    </span>
+                    {matchedAlbum && (
+                      <span className="bg-[#CD7F63]/90 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[8px] tracking-[0.15em] uppercase text-white font-mono">
+                        {matchedAlbum.title}
+                      </span>
+                    )}
                   </div>
                 </div>
 

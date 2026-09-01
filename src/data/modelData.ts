@@ -4,7 +4,7 @@ import campaignImage from '../assets/images/editorial_campaign_2_1788167187232.j
 import portraitImage from '../assets/images/editorial_portrait_3_1788167204660.jpg';
 import yogaArchImage from '../assets/images/yoga_arch_portrait_1788164838899.jpg';
 import yogaImage from '../assets/images/yoga_calm_portrait_1788164733479.jpg';
-import { ModelInfo, ModelAgencyInfo, PortfolioItem } from '../types';
+import { ModelInfo, ModelAgencyInfo, PortfolioItem, Album } from '../types';
 
 export const INITIAL_MODEL_INFO: ModelInfo = {
   name: 'Yogi',
@@ -33,53 +33,105 @@ export const INITIAL_AGENCY_INFO: ModelAgencyInfo = {
   agencyImage: heroModelImage
 };
 
+export const INITIAL_ALBUMS: Album[] = [
+  {
+    id: 'album-editorial',
+    title: 'High Fashion Editorial',
+    description: 'Sculptural silhouettes, motion studies, and high-contrast studio portraiture.',
+    category: 'Editorial',
+    season: 'Autumn / Winter 2026',
+    coverImage: heroModelImage,
+    order: 0,
+  },
+  {
+    id: 'album-runway',
+    title: 'Paris & Milan Runway',
+    description: 'Haute couture showcases and ready-to-wear runway collections in Paris and Milan.',
+    category: 'Runway',
+    season: 'Autumn / Winter 2026',
+    coverImage: runwayImage,
+    order: 1,
+  },
+  {
+    id: 'album-campaign',
+    title: 'Global Campaigns & Lookbook',
+    description: 'Architectural, brutalist, and modern commercial campaigns.',
+    category: 'Campaign',
+    season: 'Global Campaign 2026',
+    coverImage: campaignImage,
+    order: 2,
+  },
+  {
+    id: 'album-portrait',
+    title: 'Studio & Natural Light Portraits',
+    description: 'Intimate monochrome gaze, soft shadows, and clean agency polaroid series.',
+    category: 'Portrait',
+    season: 'Editorial Series',
+    coverImage: portraitImage,
+    order: 3,
+  },
+];
+
 export const PORTFOLIO_ITEMS: PortfolioItem[] = [
   {
     id: 'port-1',
+    albumId: 'album-runway',
     title: 'Parisian Haute Couture',
     category: 'Runway',
     season: 'Autumn / Winter 2026',
     aspect: 'portrait',
-    image: runwayImage
+    image: runwayImage,
+    order: 0,
   },
   {
     id: 'port-2',
+    albumId: 'album-campaign',
     title: 'Brutalist Concrete & Sunlight',
     category: 'Campaign',
     season: 'Global Campaign 2026',
     aspect: 'landscape',
-    image: campaignImage
+    image: campaignImage,
+    order: 1,
   },
   {
     id: 'port-3',
+    albumId: 'album-portrait',
     title: 'Monochrome Gaze & Shadow',
     category: 'Portrait',
     season: 'Editorial Series',
     aspect: 'portrait',
-    image: portraitImage
+    image: portraitImage,
+    order: 2,
   },
   {
     id: 'port-4',
+    albumId: 'album-editorial',
     title: 'Sculptural Poise in Linen',
     category: 'Editorial',
     season: 'Studio Collection',
     aspect: 'portrait',
-    image: heroModelImage
+    image: heroModelImage,
+    order: 3,
   },
   {
     id: 'port-5',
+    albumId: 'album-editorial',
     title: 'Arch & Silhouette Form',
     category: 'Editorial',
     season: 'Movement Study',
     aspect: 'portrait',
-    image: yogaArchImage
+    image: yogaArchImage,
+    order: 4,
   },
   {
     id: 'port-6',
+    albumId: 'album-campaign',
     title: 'Stillness & Earth Tones',
     category: 'Campaign',
     season: 'Resort 2026',
     aspect: 'portrait',
-    image: yogaImage
+    image: yogaImage,
+    order: 5,
   }
 ];
+

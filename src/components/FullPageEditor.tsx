@@ -16,9 +16,13 @@ import {
   Compass,
   User,
   HeartHandshake,
-  Loader2
+  Loader2,
+  FolderHeart,
+  FolderPlus,
+  RotateCcw,
+  AlertTriangle
 } from 'lucide-react';
-import { ModelInfo, ModelAgencyInfo, PortfolioItem } from '../types';
+import { ModelInfo, ModelAgencyInfo, PortfolioItem, Album } from '../types';
 import { optimizeImageFile } from '../lib/imageUtils';
 
 interface FullPageEditorProps {
@@ -28,6 +32,9 @@ interface FullPageEditorProps {
   onSaveAgencyInfo: (updated: ModelAgencyInfo) => Promise<void> | void;
   portfolioItems: PortfolioItem[];
   onSavePortfolioItems: (updated: PortfolioItem[]) => Promise<void> | void;
+  albums?: Album[];
+  onSaveAlbums?: (updated: Album[]) => Promise<void> | void;
+  onResetToDefaults?: () => Promise<void> | void;
   onClose: () => void;
 }
 
@@ -38,16 +45,22 @@ export default function FullPageEditor({
   onSaveAgencyInfo,
   portfolioItems,
   onSavePortfolioItems,
+  albums = [],
+  onSaveAlbums,
+  onResetToDefaults,
   onClose,
 }: FullPageEditorProps) {
-  const [activeTab, setActiveTab] = useState<'all' | 'profile' | 'agency' | 'portfolio' | 'stats'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'profile' | 'agency' | 'albums' | 'portfolio' | 'stats'>('all');
   const [isSaving, setIsSaving] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [uploadingSection, setUploadingSection] = useState<string | null>(null);
 
   // Working state copies
   const [modelForm, setModelForm] = useState<ModelInfo>({ ...modelInfo });
   const [agencyForm, setAgencyForm] = useState<ModelAgencyInfo>({ ...agencyInfo });
   const [portfolioList, setPortfolioList] = useState<PortfolioItem[]>([...portfolioItems]);
+  const [albumList, setAlbumList] = useState<Album[]>([...albums]);
 
   const [tagInput, setTagInput] = useState('');
   const [categoryInput, setCategoryInput] = useState('');
@@ -56,7 +69,9 @@ export default function FullPageEditor({
   const heroImageInputRef = useRef<HTMLInputElement>(null);
   const agencyImageInputRef = useRef<HTMLInputElement>(null);
   const portfolioImageInputRef = useRef<HTMLInputElement>(null);
+  const albumCoverInputRef = useRef<HTMLInputElement>(null);
   const [editingPortfolioId, setEditingPortfolioId] = useState<string | null>(null);
+  const [editingAlbumId, setEditingAlbumId] = useState<string | null>(null);
 
   const handleSaveAndExit = async (e?: FormEvent) => {
     if (e) e.preventDefault();
@@ -64,11 +79,15 @@ export default function FullPageEditor({
     setIsSaving(true);
     
     try {
-      await Promise.all([
+      const tasks: Promise<any>[] = [
         Promise.resolve(onSaveModelInfo(modelForm)),
         Promise.resolve(onSaveAgencyInfo(agencyForm)),
         Promise.resolve(onSavePortfolioItems(portfolioList)),
-      ]);
+      ];
+      if (onSaveAlbums) {
+        tasks.push(Promise.resolve(onSaveAlbums(albumList)));
+      }
+      await Promise.all(tasks);
     } catch (err) {
       console.warn('Save notice:', err);
     } finally {
@@ -76,6 +95,7 @@ export default function FullPageEditor({
       onClose();
     }
   };
+
 
   const handleHeroImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -124,6 +144,42 @@ export default function FullPageEditor({
     }
   };
 
+  const handleAlbumCoverUpload = async (e: ChangeEvent<HTMLInputElement>, albumId: string) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadingSection(`album-${albumId}`);
+      try {
+        const optimized = await optimizeImageFile(file, 1000, 0.75);
+        setAlbumList((prev) =>
+          prev.map((album) => (album.id === albumId ? { ...album, coverImage: optimized } : album))
+        );
+      } catch (err) {
+        console.error('Error reading album cover image:', err);
+      } finally {
+        setUploadingSection(null);
+      }
+    }
+  };
+
+  const handleAddAlbum = () => {
+    const newAlbum: Album = {
+      id: `album-${Date.now()}`,
+      title: 'New Editorial Lookbook',
+      description: 'Curated collection of editorial spreads and photography.',
+      category: 'Editorial',
+      season: 'Autumn / Winter 2026',
+      coverImage: modelForm.heroImage,
+      order: albumList.length,
+    };
+    setAlbumList([...albumList, newAlbum]);
+  };
+
+  const handleDeleteAlbum = (id: string) => {
+    setAlbumList(albumList.filter((album) => album.id !== id));
+    // Clear albumId from assigned items
+    setPortfolioList(portfolioList.map((item) => (item.albumId === id ? { ...item, albumId: undefined } : item)));
+  };
+
   const handleAddPortfolioItem = () => {
     const newItem: PortfolioItem = {
       id: `port-${Date.now()}`,
@@ -132,6 +188,7 @@ export default function FullPageEditor({
       season: 'Campaign 2026',
       aspect: 'portrait',
       image: modelForm.heroImage,
+      albumId: albumList.length > 0 ? albumList[0].id : undefined,
     };
     setPortfolioList([...portfolioList, newItem]);
   };
@@ -202,6 +259,17 @@ export default function FullPageEditor({
         accept="image/*"
         className="hidden"
       />
+      <input
+        type="file"
+        ref={albumCoverInputRef}
+        onChange={(e) => {
+          if (editingAlbumId) {
+            handleAlbumCoverUpload(e, editingAlbumId);
+          }
+        }}
+        accept="image/*"
+        className="hidden"
+      />
 
       {/* Top Sticky Bar */}
       <header className="sticky top-0 z-50 bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#E0D8CA] px-6 sm:px-10 py-4 shadow-sm">
@@ -225,22 +293,36 @@ export default function FullPageEditor({
                   Full Page Editorial Studio
                 </h1>
                 <p className="text-[10px] text-[#786F62] font-mono">
-                  Direct edit mode for images, copy, and layout metadata
+                  Direct edit mode for albums, images, copy, and layout metadata
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Quick Save Header Button */}
-          <button
-            type="button"
-            disabled={isSaving}
-            onClick={handleSaveAndExit}
-            className="inline-flex items-center gap-2 bg-[#1A1A1A] hover:bg-[#333] active:scale-95 text-[#FAF7F2] px-6 py-2 rounded-full text-xs font-bold tracking-[0.2em] uppercase transition-all shadow-md cursor-pointer disabled:opacity-75"
-          >
-            <Check className="w-4 h-4 text-[#CD7F63]" />
-            <span>{isSaving ? 'Saving...' : 'Save & Exit'}</span>
-          </button>
+          {/* Quick Save & Reset Header Buttons */}
+          <div className="flex items-center gap-3">
+            {onResetToDefaults && (
+              <button
+                type="button"
+                onClick={() => setShowResetConfirm(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wider uppercase text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100/80 border border-red-200 px-4 py-2 rounded-full transition-colors cursor-pointer"
+                title="Wipe Firestore database overrides and reset to clean defaults"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Database</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              disabled={isSaving}
+              onClick={handleSaveAndExit}
+              className="inline-flex items-center gap-2 bg-[#1A1A1A] hover:bg-[#333] active:scale-95 text-[#FAF7F2] px-6 py-2 rounded-full text-xs font-bold tracking-[0.2em] uppercase transition-all shadow-md cursor-pointer disabled:opacity-75"
+            >
+              <Check className="w-4 h-4 text-[#CD7F63]" />
+              <span>{isSaving ? 'Saving...' : 'Save & Exit'}</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -255,7 +337,7 @@ export default function FullPageEditor({
                 <Compass className="w-3.5 h-3.5" />
                 <span>Page Sections</span>
               </span>
-              <span className="text-[10px] font-mono text-neutral-400">4 Modules</span>
+              <span className="text-[10px] font-mono text-neutral-400">5 Modules</span>
             </div>
 
             {/* Vertical Section Navigation Buttons */}
@@ -310,6 +392,22 @@ export default function FullPageEditor({
 
               <button
                 type="button"
+                onClick={() => setActiveTab('albums')}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold tracking-wider uppercase transition-all text-left ${
+                  activeTab === 'albums'
+                    ? 'bg-[#1A1A1A] text-[#FAF7F2] shadow-sm'
+                    : 'bg-white/70 text-[#786F62] hover:bg-white hover:text-black border border-[#EAE3D6]'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <FolderHeart className="w-4 h-4 text-[#CD7F63]" />
+                  <span>3. Albums & Groups</span>
+                </div>
+                <span className="text-[10px] opacity-70">{albumList.length} Albums</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setActiveTab('portfolio')}
                 className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold tracking-wider uppercase transition-all text-left ${
                   activeTab === 'portfolio'
@@ -319,7 +417,7 @@ export default function FullPageEditor({
               >
                 <div className="flex items-center gap-2.5">
                   <Camera className="w-4 h-4 text-[#CD7F63]" />
-                  <span>3. Portfolio Grid</span>
+                  <span>4. Portfolio Photos</span>
                 </div>
                 <span className="text-[10px] opacity-70">{portfolioList.length} Spreads</span>
               </button>
@@ -335,7 +433,7 @@ export default function FullPageEditor({
               >
                 <div className="flex items-center gap-2.5">
                   <Activity className="w-4 h-4 text-[#CD7F63]" />
-                  <span>4. Stats & Specs</span>
+                  <span>5. Stats & Specs</span>
                 </div>
                 <span className="text-[10px] opacity-70">Comp-Card</span>
               </button>
@@ -669,9 +767,9 @@ export default function FullPageEditor({
             </section>
           )}
 
-          {/* ================= SECTION 3: PORTFOLIO WORKS & IMAGES ================= */}
-          {(activeTab === 'all' || activeTab === 'portfolio') && (
-            <section id="edit-section-portfolio" className="bg-[#FAF7F2] border border-[#E0D8CA] rounded-2xl p-6 sm:p-8 shadow-sm space-y-8">
+          {/* ================= SECTION 3: ALBUMS & LOOKBOOK COLLECTIONS ================= */}
+          {(activeTab === 'all' || activeTab === 'albums') && (
+            <section id="edit-section-albums" className="bg-[#FAF7F2] border border-[#E0D8CA] rounded-2xl p-6 sm:p-8 shadow-sm space-y-8">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#EAE3D6] pb-4 gap-4">
                 <div className="flex items-center gap-3">
                   <span className="w-8 h-8 rounded-full bg-[#1A1A1A] text-[#FAF7F2] flex items-center justify-center font-bold text-sm">
@@ -682,10 +780,179 @@ export default function FullPageEditor({
                       className="text-2xl sm:text-3xl font-normal text-[#1A1A1A]"
                       style={{ fontFamily: "'Cormorant Garamond', 'Georgia', serif" }}
                     >
+                      Lookbook Albums & Collections
+                    </h2>
+                    <p className="text-xs text-[#786F62]">
+                      Create and organize distinct photo albums (Editorial, Runway, Campaigns, Lookbooks).
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddAlbum}
+                  className="inline-flex items-center gap-2 bg-[#1A1A1A] hover:bg-[#333] text-[#FAF7F2] px-5 py-2.5 rounded-lg text-xs font-semibold tracking-wider uppercase transition-colors shadow-xs"
+                >
+                  <Plus className="w-4 h-4 text-[#CD7F63]" />
+                  <span>Create New Album</span>
+                </button>
+              </div>
+
+              {albumList.length === 0 ? (
+                <div className="text-center py-12 bg-white/60 rounded-xl border border-dashed border-[#EAE3D6] p-6">
+                  <p className="text-xs text-[#786F62] mb-3">No albums defined yet.</p>
+                  <button
+                    type="button"
+                    onClick={handleAddAlbum}
+                    className="bg-[#1A1A1A] text-white px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider"
+                  >
+                    Add First Album
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {albumList.map((album, index) => {
+                    const photosInAlbum = portfolioList.filter((p) => p.albumId === album.id);
+                    return (
+                      <div
+                        key={album.id}
+                        className="bg-white border border-[#EAE3D6] rounded-xl p-5 flex flex-col gap-4 shadow-xs relative"
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-neutral-900 flex-shrink-0 group">
+                            <img
+                              src={album.coverImage || modelForm.heroImage}
+                              alt={album.title}
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingAlbumId(album.id);
+                                  albumCoverInputRef.current?.click();
+                                }}
+                                className="bg-white text-black px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wider"
+                              >
+                                Cover
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] font-mono text-[#CD7F63] font-bold uppercase">
+                                ALBUM #{index + 1} · {photosInAlbum.length} PHOTOS
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteAlbum(album.id)}
+                                className="text-neutral-400 hover:text-red-500 p-1 transition-colors"
+                                title="Delete album"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                            <input
+                              type="text"
+                              value={album.title}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setAlbumList(
+                                  albumList.map((a) => (a.id === album.id ? { ...a, title: val } : a))
+                                );
+                              }}
+                              className="w-full bg-[#FAF7F2] border border-[#EAE3D6] rounded-lg px-3 py-1.5 text-xs font-semibold text-[#1A1A1A]"
+                              placeholder="Album Title"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] text-[#786F62] uppercase font-bold mb-1">
+                            Album Description / Theme
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={album.description || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setAlbumList(
+                                albumList.map((a) => (a.id === album.id ? { ...a, description: val } : a))
+                              );
+                            }}
+                            className="w-full bg-[#FAF7F2] border border-[#EAE3D6] rounded-lg px-3 py-1.5 text-xs text-[#1A1A1A] resize-none"
+                            placeholder="Brief theme description or mood..."
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[10px] text-[#786F62] uppercase font-bold mb-1">
+                              Category Tag
+                            </label>
+                            <select
+                              value={album.category || 'Editorial'}
+                              onChange={(e) => {
+                                const val = e.target.value as any;
+                                setAlbumList(
+                                  albumList.map((a) => (a.id === album.id ? { ...a, category: val } : a))
+                                );
+                              }}
+                              className="w-full bg-[#FAF7F2] border border-[#EAE3D6] rounded-lg px-2.5 py-1.5 text-xs"
+                            >
+                              <option value="Editorial">Editorial</option>
+                              <option value="Runway">Runway</option>
+                              <option value="Campaign">Campaign</option>
+                              <option value="Portrait">Portrait</option>
+                              <option value="All">All</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] text-[#786F62] uppercase font-bold mb-1">
+                              Season / Year
+                            </label>
+                            <input
+                              type="text"
+                              value={album.season || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setAlbumList(
+                                  albumList.map((a) => (a.id === album.id ? { ...a, season: val } : a))
+                                );
+                              }}
+                              className="w-full bg-[#FAF7F2] border border-[#EAE3D6] rounded-lg px-3 py-1.5 text-xs text-[#1A1A1A]"
+                              placeholder="e.g. Autumn / Winter 2026"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* ================= SECTION 4: PORTFOLIO WORKS & IMAGES ================= */}
+          {(activeTab === 'all' || activeTab === 'portfolio') && (
+            <section id="edit-section-portfolio" className="bg-[#FAF7F2] border border-[#E0D8CA] rounded-2xl p-6 sm:p-8 shadow-sm space-y-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#EAE3D6] pb-4 gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="w-8 h-8 rounded-full bg-[#1A1A1A] text-[#FAF7F2] flex items-center justify-center font-bold text-sm">
+                    4
+                  </span>
+                  <div>
+                    <h2
+                      className="text-2xl sm:text-3xl font-normal text-[#1A1A1A]"
+                      style={{ fontFamily: "'Cormorant Garamond', 'Georgia', serif" }}
+                    >
                       Editorial Portfolio & Photography Works
                     </h2>
                     <p className="text-xs text-[#786F62]">
-                      Add, remove, replace photos, and adjust aspect ratios (3:4 vertical or 16:10 wide).
+                      Add, remove, replace photos, assign to albums, and adjust aspect ratios.
                     </p>
                   </div>
                 </div>
@@ -759,6 +1026,30 @@ export default function FullPageEditor({
                         />
                       </div>
 
+                      {/* Album Assignment Dropdown */}
+                      <div>
+                        <label className="block text-[10px] text-[#786F62] uppercase font-bold mb-1">
+                          Assigned Album
+                        </label>
+                        <select
+                          value={item.albumId || ''}
+                          onChange={(e) => {
+                            const val = e.target.value || undefined;
+                            setPortfolioList(
+                              portfolioList.map((p) => (p.id === item.id ? { ...p, albumId: val } : p))
+                            );
+                          }}
+                          className="w-full bg-[#FAF7F2] border border-[#EAE3D6] rounded-lg px-2.5 py-1.5 text-xs font-medium text-[#1A1A1A]"
+                        >
+                          <option value="">-- Unassigned / General --</option>
+                          {albumList.map((album) => (
+                            <option key={album.id} value={album.id}>
+                              📁 {album.title}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-[10px] text-[#786F62] uppercase font-bold mb-1">
@@ -824,13 +1115,13 @@ export default function FullPageEditor({
             </section>
           )}
 
-          {/* ================= SECTION 4: MEASUREMENTS & COMP-CARD STATS ================= */}
+          {/* ================= SECTION 5: MEASUREMENTS & COMP-CARD STATS ================= */}
           {(activeTab === 'all' || activeTab === 'stats') && (
             <section id="edit-section-stats" className="bg-[#FAF7F2] border border-[#E0D8CA] rounded-2xl p-6 sm:p-8 shadow-sm space-y-8">
               <div className="flex items-center justify-between border-b border-[#EAE3D6] pb-4">
                 <div className="flex items-center gap-3">
                   <span className="w-8 h-8 rounded-full bg-[#1A1A1A] text-[#FAF7F2] flex items-center justify-center font-bold text-sm">
-                    4
+                    5
                   </span>
                   <div>
                     <h2
@@ -845,6 +1136,7 @@ export default function FullPageEditor({
                   </div>
                 </div>
               </div>
+
 
               <div className="bg-white border border-[#EAE3D6] rounded-xl p-6 space-y-6">
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
@@ -1000,6 +1292,66 @@ export default function FullPageEditor({
           </div>
         </div>
       </div>
+      {/* Reset Confirmation Modal */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#FAF7F2] border border-[#E0D8CA] rounded-2xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-5">
+            <div className="flex items-center gap-3 text-red-600">
+              <div className="p-3 bg-red-100 rounded-full">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-[#1A1A1A]">Delete All Firestore Data?</h3>
+                <p className="text-xs text-[#786F62]">Clean Database Purge & Default Reset</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#595246] leading-relaxed">
+              This action will delete all custom overrides, uploaded images, custom albums, and edited copy directly from your live Firestore database, resetting everything back to pristine initial editorial defaults.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isResetting}
+                onClick={() => setShowResetConfirm(false)}
+                className="px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider text-[#595246] hover:bg-neutral-200/50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isResetting}
+                onClick={async () => {
+                  if (onResetToDefaults) {
+                    setIsResetting(true);
+                    try {
+                      await onResetToDefaults();
+                      setShowResetConfirm(false);
+                      onClose();
+                    } finally {
+                      setIsResetting(false);
+                    }
+                  }
+                }}
+                className="bg-red-600 hover:bg-red-700 active:scale-95 text-white px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 shadow-md"
+              >
+                {isResetting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Clearing Database...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Yes, Purge Database</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

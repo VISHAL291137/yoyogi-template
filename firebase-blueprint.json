@@ -39,6 +39,22 @@
       },
       "required": ["greeting", "leadText"]
     },
+    "albums": {
+      "title": "Albums",
+      "description": "Distinct editorial lookbook and photoshoot albums",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "coverImage": { "type": "string" },
+        "category": { "type": "string" },
+        "season": { "type": "string" },
+        "order": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title"]
+    },
     "portfolio_items": {
       "title": "Portfolio Item",
       "description": "Individual high-fashion photographic portfolio item",
@@ -50,6 +66,7 @@
         "season": { "type": "string" },
         "aspect": { "type": "string" },
         "image": { "type": "string" },
+        "albumId": { "type": "string" },
         "order": { "type": "number" },
         "updatedAt": { "type": "string" }
       },
