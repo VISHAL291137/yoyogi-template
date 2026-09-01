@@ -1,4 +1,12 @@
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  setDoc,
+  deleteDoc,
+  collection,
+  getDocs,
+  onSnapshot
+} from 'firebase/firestore';
 import { db } from './firebase';
 import { ModelInfo, ModelAgencyInfo, PortfolioItem } from '../types';
 import { INITIAL_MODEL_INFO, INITIAL_AGENCY_INFO, PORTFOLIO_ITEMS } from '../data/modelData';
@@ -53,18 +61,31 @@ export function normalizeAgencyInfo(data: any): ModelAgencyInfo {
   };
 }
 
+export function normalizePortfolioItem(data: any, defaultId: string): PortfolioItem {
+  return {
+    id: data?.id || defaultId,
+    title: data?.title || 'Editorial Look',
+    category: data?.category || 'Editorial',
+    season: data?.season || '2026',
+    aspect: data?.aspect || 'portrait',
+    image: data?.image || '',
+  };
+}
+
 export async function fetchCloudData(
   onLoaded: (data: { profile: ModelInfo; agency: ModelAgencyInfo; portfolio: PortfolioItem[] }) => void
 ) {
   try {
     const profileRef = doc(db, 'model_profiles', PROFILE_DOC_ID);
     const agencyRef = doc(db, 'agency_sections', AGENCY_DOC_ID);
-    const portfolioRef = doc(db, 'portfolio_collections', PORTFOLIO_DOC_ID);
+    const portfolioColRef = collection(db, 'portfolio_items');
+    const legacyPortfolioRef = doc(db, 'portfolio_collections', PORTFOLIO_DOC_ID);
 
-    const [profileSnap, agencySnap, portfolioSnap] = await Promise.all([
+    const [profileSnap, agencySnap, portfolioColSnap, legacyPortfolioSnap] = await Promise.all([
       getDoc(profileRef).catch(() => null),
       getDoc(agencyRef).catch(() => null),
-      getDoc(portfolioRef).catch(() => null),
+      getDocs(portfolioColRef).catch(() => null),
+      getDoc(legacyPortfolioRef).catch(() => null),
     ]);
 
     let profile = INITIAL_MODEL_INFO;
@@ -79,10 +100,22 @@ export async function fetchCloudData(
       agency = normalizeAgencyInfo(agencySnap.data());
     }
 
-    if (portfolioSnap && portfolioSnap.exists()) {
-      const data = portfolioSnap.data();
-      if (Array.isArray(data?.items)) {
-        portfolio = data.items;
+    if (portfolioColSnap && !portfolioColSnap.empty) {
+      const items = portfolioColSnap.docs.map((d, index) => {
+        const itemData = d.data();
+        return {
+          ...normalizePortfolioItem(itemData, d.id),
+          order: typeof itemData.order === 'number' ? itemData.order : index,
+        };
+      });
+      items.sort((a, b) => a.order - b.order);
+      portfolio = items.map(({ order, ...item }) => item);
+    } else if (legacyPortfolioSnap && legacyPortfolioSnap.exists()) {
+      const data = legacyPortfolioSnap.data();
+      if (Array.isArray(data?.items) && data.items.length > 0) {
+        portfolio = data.items.map((item: any, idx: number) =>
+          normalizePortfolioItem(item, `port-${idx}`)
+        );
       }
     }
 
@@ -136,15 +169,20 @@ export function subscribeToPortfolio(
   onUpdate: (items: PortfolioItem[]) => void,
   onError?: (err: Error) => void
 ) {
-  const portfolioRef = doc(db, 'portfolio_collections', PORTFOLIO_DOC_ID);
+  const portfolioColRef = collection(db, 'portfolio_items');
   return onSnapshot(
-    portfolioRef,
+    portfolioColRef,
     (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        if (Array.isArray(data?.items)) {
-          onUpdate(data.items);
-        }
+      if (!snap.empty) {
+        const items = snap.docs.map((d, index) => {
+          const itemData = d.data();
+          return {
+            ...normalizePortfolioItem(itemData, d.id),
+            order: typeof itemData.order === 'number' ? itemData.order : index,
+          };
+        });
+        items.sort((a, b) => a.order - b.order);
+        onUpdate(items.map(({ order, ...item }) => item));
       }
     },
     (err) => {
@@ -157,7 +195,7 @@ export async function saveLiveModelProfile(modelInfo: ModelInfo): Promise<{ succ
   let optimizedHero = modelInfo.heroImage;
   if (optimizedHero && optimizedHero.startsWith('data:image')) {
     try {
-      optimizedHero = await optimizeImageDataUrl(optimizedHero, 1600, 0.85);
+      optimizedHero = await optimizeImageDataUrl(optimizedHero, 1200, 0.78);
     } catch {
       // ignore
     }
@@ -196,7 +234,7 @@ export async function saveLiveAgencySection(agencyInfo: ModelAgencyInfo): Promis
   let optimizedImage = agencyInfo.agencyImage;
   if (optimizedImage && optimizedImage.startsWith('data:image')) {
     try {
-      optimizedImage = await optimizeImageDataUrl(optimizedImage, 1600, 0.85);
+      optimizedImage = await optimizeImageDataUrl(optimizedImage, 1200, 0.78);
     } catch {
       // ignore
     }
@@ -232,30 +270,65 @@ export async function saveLiveAgencySection(agencyInfo: ModelAgencyInfo): Promis
 }
 
 export async function saveLivePortfolio(items: PortfolioItem[]): Promise<{ success: boolean; error?: string }> {
-  const optimizedItems = await Promise.all(
-    items.map(async (item) => {
-      if (item.image && item.image.startsWith('data:image')) {
-        try {
-          const optimized = await optimizeImageDataUrl(item.image, 1600, 0.85);
-          return { ...item, image: optimized };
-        } catch {
-          return item;
-        }
-      }
-      return item;
-    })
-  );
-
   try {
-    const portfolioRef = doc(db, 'portfolio_collections', PORTFOLIO_DOC_ID);
-    await setDoc(
-      portfolioRef,
+    // 1. Optimize images individually to keep per-document sizes compact (~30-50KB)
+    const optimizedItems = await Promise.all(
+      items.map(async (item) => {
+        if (item.image && item.image.startsWith('data:image')) {
+          try {
+            const optimized = await optimizeImageDataUrl(item.image, 1000, 0.72);
+            return { ...item, image: optimized };
+          } catch {
+            return item;
+          }
+        }
+        return item;
+      })
+    );
+
+    // 2. Fetch existing portfolio_items document IDs to clean up deleted items
+    const portfolioColRef = collection(db, 'portfolio_items');
+    const existingSnap = await getDocs(portfolioColRef).catch(() => null);
+    const existingIds = new Set<string>(existingSnap ? existingSnap.docs.map((d) => d.id) : []);
+    const currentIds = new Set<string>(optimizedItems.map((item) => item.id));
+
+    // Delete items that no longer exist in the updated list
+    const deletePromises: Promise<void>[] = [];
+    existingIds.forEach((oldId: string) => {
+      if (!currentIds.has(oldId)) {
+        deletePromises.push(deleteDoc(doc(db, 'portfolio_items', oldId)).catch(() => {}));
+      }
+    });
+
+    // 3. Save each item as its own document in portfolio_items collection
+    // This strictly prevents ever exceeding the 1,048,576 byte (1MB) per document limit!
+    const writePromises = optimizedItems.map((item, index) => {
+      const itemRef = doc(db, 'portfolio_items', item.id);
+      return setDoc(
+        itemRef,
+        {
+          ...item,
+          order: index,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    });
+
+    await Promise.all([...deletePromises, ...writePromises]);
+
+    // 4. Update legacy summary document with lightweight metadata
+    const legacyRef = doc(db, 'portfolio_collections', PORTFOLIO_DOC_ID);
+    setDoc(
+      legacyRef,
       {
-        items: optimizedItems,
+        itemCount: optimizedItems.length,
+        itemIds: optimizedItems.map((i) => i.id),
         updatedAt: new Date().toISOString(),
       },
       { merge: true }
-    );
+    ).catch(() => {});
+
     return { success: true };
   } catch (err: any) {
     if (!isQuotaExhaustedError(err)) {

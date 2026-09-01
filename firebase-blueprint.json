@@ -39,15 +39,32 @@
       },
       "required": ["greeting", "leadText"]
     },
+    "portfolio_items": {
+      "title": "Portfolio Item",
+      "description": "Individual high-fashion photographic portfolio item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "season": { "type": "string" },
+        "aspect": { "type": "string" },
+        "image": { "type": "string" },
+        "order": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title"]
+    },
     "portfolio_collections": {
       "title": "Portfolio Collections",
-      "description": "High-fashion photographic portfolio items",
+      "description": "High-fashion photographic portfolio items collection summary",
       "type": "object",
       "properties": {
         "items": { "type": "array" },
+        "itemCount": { "type": "number" },
+        "itemIds": { "type": "array", "items": { "type": "string" } },
         "updatedAt": { "type": "string" }
-      },
-      "required": ["items"]
+      }
     }
   }
 }

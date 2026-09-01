@@ -82,7 +82,7 @@ export default function FullPageEditor({
     if (file) {
       setUploadingSection('hero');
       try {
-        const optimized = await optimizeImageFile(file, 1600, 0.85);
+        const optimized = await optimizeImageFile(file, 1200, 0.78);
         setModelForm((prev) => ({ ...prev, heroImage: optimized }));
       } catch (err) {
         console.error('Error reading hero image:', err);
@@ -97,7 +97,7 @@ export default function FullPageEditor({
     if (file) {
       setUploadingSection('agency');
       try {
-        const optimized = await optimizeImageFile(file, 1600, 0.85);
+        const optimized = await optimizeImageFile(file, 1200, 0.78);
         setAgencyForm((prev) => ({ ...prev, agencyImage: optimized }));
       } catch (err) {
         console.error('Error reading agency image:', err);
@@ -112,7 +112,7 @@ export default function FullPageEditor({
     if (file) {
       setUploadingSection(id);
       try {
-        const optimized = await optimizeImageFile(file, 1600, 0.85);
+        const optimized = await optimizeImageFile(file, 1100, 0.75);
         setPortfolioList((prev) =>
           prev.map((item) => (item.id === id ? { ...item, image: optimized } : item))
         );

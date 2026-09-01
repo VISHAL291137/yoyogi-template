@@ -1,15 +1,15 @@
 /**
  * Image processing utility for optimizing uploaded images
  * Resizes large camera/phone photos to max dimensions and compresses to high-quality JPEG
- * to ensure images fit reliably into both Firestore (1MB limit) and browser storage.
+ * to ensure images fit reliably into Firestore documents (1MB limit) and load fast.
  */
 
-export async function optimizeImageFile(file: File, maxDimension = 1400, quality = 0.82): Promise<string> {
+export async function optimizeImageFile(file: File, maxDimension = 1100, quality = 0.75): Promise<string> {
   return new Promise((resolve) => {
     // Safety timeout to prevent any infinite stall
     const timeout = setTimeout(() => {
       resolve('');
-    }, 3000);
+    }, 4000);
 
     const reader = new FileReader();
     reader.onerror = () => {
@@ -31,14 +31,14 @@ export async function optimizeImageFile(file: File, maxDimension = 1400, quality
   });
 }
 
-export async function optimizeImageDataUrl(dataUrl: string, maxDimension = 1400, quality = 0.82): Promise<string> {
+export async function optimizeImageDataUrl(dataUrl: string, maxDimension = 1100, quality = 0.75): Promise<string> {
   // If not data:image or empty, return immediately
   if (!dataUrl || !dataUrl.startsWith('data:image')) {
     return dataUrl || '';
   }
 
-  // If already compact (< 250KB), return directly without overhead
-  if (dataUrl.length < 300000) {
+  // If already very compact (< 40KB), return directly without overhead
+  if (dataUrl.length < 45000) {
     return dataUrl;
   }
 
@@ -46,7 +46,7 @@ export async function optimizeImageDataUrl(dataUrl: string, maxDimension = 1400,
     // Safety fallback timeout
     const timeout = setTimeout(() => {
       resolve(dataUrl);
-    }, 1500);
+    }, 2500);
 
     const img = new Image();
     img.onload = () => {
@@ -97,3 +97,4 @@ export async function optimizeImageDataUrl(dataUrl: string, maxDimension = 1400,
     img.src = dataUrl;
   });
 }
+
