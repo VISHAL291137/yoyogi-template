@@ -16,10 +16,10 @@ export default function ModelPortfolio({ items }: ModelPortfolioProps) {
 
   return (
     <section
-      id="portfolio"
+      id="album"
       className="w-full bg-[#FAF7F2] text-[#1A1A1A] py-24 sm:py-32 lg:py-36 border-b border-[#ECE5D8]"
     >
-      <div className="max-w-7xl mx-auto px-6 sm:px-12 md:px-16 lg:px-20">
+      <div id="portfolio" className="max-w-7xl mx-auto px-6 sm:px-12 md:px-16 lg:px-20">
         {/* Section Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-14 sm:mb-16 border-b border-[#ECE5D8] pb-8">
           <div>

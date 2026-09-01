@@ -91,7 +91,7 @@ export default function App() {
   // Track active section for navigation numbers (1, 2, 3, 4, 5)
   useEffect(() => {
     const handleScroll = () => {
-      const sections = ['profile', 'portfolio', 'stats', 'representation', 'about-model-agency'];
+      const sections = ['profile', 'album', 'portfolio', 'stats', 'representation', 'about-model-agency'];
       const scrollPosition = window.scrollY + 200;
 
       for (const sectionId of sections) {
@@ -100,7 +100,7 @@ export default function App() {
           const top = el.offsetTop;
           const height = el.offsetHeight;
           if (scrollPosition >= top && scrollPosition < top + height) {
-            setActiveSection(sectionId);
+            setActiveSection(sectionId === 'portfolio' ? 'album' : sectionId);
             break;
           }
         }

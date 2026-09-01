@@ -18,7 +18,7 @@ export default function ModelHeader({ onEditProfile, activeSection }: ModelHeade
 
   const navItems = [
     { num: '1', label: 'PROFILE', href: '#profile' },
-    { num: '2', label: 'PORTFOLIO', href: '#portfolio' },
+    { num: '2', label: 'ALBUM', href: '#album' },
     { num: '3', label: 'STATS', href: '#stats' },
     { num: '4', label: 'REPRESENTATION', href: '#representation' },
     { num: '5', label: 'AGENCY', href: '#about-model-agency' },

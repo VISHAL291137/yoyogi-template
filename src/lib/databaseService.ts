@@ -170,10 +170,15 @@ export function subscribeToPortfolio(
   onError?: (err: Error) => void
 ) {
   const portfolioColRef = collection(db, 'portfolio_items');
-  return onSnapshot(
+  const legacyPortfolioRef = doc(db, 'portfolio_collections', PORTFOLIO_DOC_ID);
+
+  let hasCollectionItems = false;
+
+  const unsubCol = onSnapshot(
     portfolioColRef,
     (snap) => {
       if (!snap.empty) {
+        hasCollectionItems = true;
         const items = snap.docs.map((d, index) => {
           const itemData = d.data();
           return {
@@ -189,6 +194,29 @@ export function subscribeToPortfolio(
       if (onError) onError(err);
     }
   );
+
+  const unsubLegacy = onSnapshot(
+    legacyPortfolioRef,
+    (snap) => {
+      if (!hasCollectionItems && snap.exists()) {
+        const data = snap.data();
+        if (Array.isArray(data?.items) && data.items.length > 0) {
+          const items = data.items.map((item: any, idx: number) =>
+            normalizePortfolioItem(item, `port-${idx}`)
+          );
+          onUpdate(items);
+        }
+      }
+    },
+    (err) => {
+      if (onError) onError(err);
+    }
+  );
+
+  return () => {
+    unsubCol();
+    unsubLegacy();
+  };
 }
 
 export async function saveLiveModelProfile(modelInfo: ModelInfo): Promise<{ success: boolean; error?: string }> {
